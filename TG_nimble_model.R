@@ -480,18 +480,22 @@ saveRDS(mcmc_samples_list, paste0(mcmc_save_name, ".rds"))
 #############
 post_probs_null_TG <- 
   as.data.frame(lapply(mcmc_samples_list, function(x){
-    incl_ind <- grep("not_null", colnames(x))
+    incl_ind <- grep("not_null", colnames(x)) # lIne used to extract the columns of the not_null indicators from the MCMC samples
+    #The line for the calculation of posterior probabbility of null group 
     return(1-colMeans(x[,incl_ind]))
     }))
 
 post_probs_ben_TG <- 
   as.data.frame(lapply(mcmc_samples_list, function(x){
-    incl_ind_null <- grep("not_null", colnames(x))
-    incl_ind_ben  <- grep("not_ben", colnames(x))
+    incl_ind_null <- grep("not_null", colnames(x)) #Line used to extract the columns of the not_null indicators from the MCMC samples
+    incl_ind_ben  <- grep("not_ben", colnames(x)) #Line used to extract the columns of the not_ben indicators from the MCMC samples
+    # create a matrix to store the product of (1-not_ben) and not_null
     prod_mat <- matrix(NA, nrow = dim(x)[1], ncol = length(incl_ind_ben))
     for(i in 1:length(incl_ind_ben)){
+      #the real code line for the calculation of the posterrior probability of the beneficial group is below
       prod_mat[,i] <- (1-x[,incl_ind_ben[i]]) * x[,incl_ind_null[i]]
     }
+    # Posterior probability of the beneficial group is the mean of the product matrix across all MCMC samples, in it simple forrm
     return(colMeans(prod_mat))
     }))
 

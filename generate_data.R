@@ -13,15 +13,14 @@ library(edgeR)
 #   here:   https://bowtie-bio.sourceforge.net/recount/
 pickrell_data     <- readRDS("Montgomery_and_Pickrell.rds") 
 
-##############
-#GWAS generation (needed first for PD design matrix)
+###############GWAS generation (needed first for PD design matrix) ####This section must be deighn in respect to the disease or the pathology of interest of design 
 # three groups: -1 is beneficial, 0 is null, 1 is deleterious
-groups           <- c(rep(c(-1, 1), each = num_beneficial), 
+groups           <- c(rep(c(-1, 1), each = num_beneficial), ## E.g -1,-1, 1, 1, 0, 0, 0, 0, 0, 0)
                       rep(0, num_genes - 2*num_beneficial))
 effect_size_GWAS <- GWAS_effect
 beta_GWAS        <- groups*effect_size_GWAS
 
-# function to generate data
+# function to generate data ###This is that generate the data tha will be used while the above function is responsible for the generation of the structure of the data needed. 
 generate_GWAS_data <- function(num_ind = num_individuals_GWAS, 
                                num_gen = num_genes, 
                                beta = beta_GWAS){
