@@ -1,5 +1,0 @@
-{
-    "r.rterm.linux": "/usr/bin/R",
-    "r.lsp.promptToInstall": false,
-    "r.alwaysUseActiveTerminal": true
-}
