@@ -1,3 +1,9 @@
+#############################
+# Synthetic data generation.
+#
+# This file is sourced by parent_script.R and intentionally writes the data
+# objects used by TG_nimble_model.R into the parent environment.
+#############################
 library(seqgendiff)
 library(edgeR)
 ######################
@@ -13,14 +19,17 @@ library(edgeR)
 #   here:   https://bowtie-bio.sourceforge.net/recount/
 pickrell_data     <- readRDS("Montgomery_and_Pickrell.rds") 
 
-###############GWAS generation (needed first for PD design matrix) ####This section must be deighn in respect to the disease or the pathology of interest of design 
+#############################
+# Define truth labels and generate GWAS data first. The GWAS outcome is also
+# used to establish the disease setting for the RNA-seq simulation.
+#############################
 # three groups: -1 is beneficial, 0 is null, 1 is deleterious
 groups           <- c(rep(c(-1, 1), each = num_beneficial), ## E.g -1,-1, 1, 1, 0, 0, 0, 0, 0, 0)
                       rep(0, num_genes - 2*num_beneficial))
 effect_size_GWAS <- GWAS_effect
 beta_GWAS        <- groups*effect_size_GWAS
 
-# function to generate data ###This is that generate the data tha will be used while the above function is responsible for the generation of the structure of the data needed. 
+# Generate binary genotype predictors and a binary disease outcome.
 generate_GWAS_data <- function(num_ind = num_individuals_GWAS, 
                                num_gen = num_genes, 
                                beta = beta_GWAS){
@@ -43,8 +52,9 @@ generate_GWAS_data()
 
 
 
-#####################
-# RNA-seq setup 
+#############################
+# RNA-seq setup and simulation.
+#############################
 gene_number_index <- rep(1:num_genes, num_individuals_RNA)
 PD_indicator <- rbinom(num_individuals_RNA, 1, 0.5)
 
@@ -59,11 +69,11 @@ generate_RNA_pickrell <- function(data = pickrell_data,
                                             ngene = num_gen, 
                                             filter_first = T)
   
-  # Make design matrix
+  # Build the disease design and gene-specific log fold-change matrix.
   design_mat <- matrix(PD_ind, ncol = 1)
   coef_mat   <- matrix(log2(fc_effect_size^gene_groups), ncol = 1)
   
-  # add noise based on two groups 
+  # Thin real count data to add the requested group-specific signal.
   thinned_output <- thin_diff(mat = pickrell_data_subsampled, 
                               design_fixed = design_mat, 
                               coef_fixed = coef_mat)
@@ -73,7 +83,7 @@ generate_RNA_pickrell <- function(data = pickrell_data,
   library_offset <- colSums(thinned_output$mat)
   library_offset <<- rep(library_offset, each = num_gen)
   
-  # covariates not varying by gene
+  # Generate individual-level covariates used by the RNA likelihood.
   sex_indicator   <<- rbinom(num_ind, 1, 0.5)  # covariate (sex)
   sex_indicator   <<- rep(sex_indicator, each=num_genes)
 }

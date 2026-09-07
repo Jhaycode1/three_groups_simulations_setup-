@@ -1,6 +1,10 @@
-##############
-# three groups model
-### needs in environment: 
+#############################
+# Three-groups NIMBLE model engine.
+#
+# Expected objects are created by parent_script.R and generate_data.R.
+# This file defines the model and runs the requested model/prior combinations.
+#############################
+### needs in environment:
 ##### models_for_mcmc, priors_for_mcmc, niter, nburnin, thin, num_samples, 
 #####    dirichlet_prior, generate_GWAS_data(), generate_RNA_pickrell()
 ##############
@@ -8,8 +12,9 @@
 library(nimble)
 library(tictoc)
 tic()
-#################
-# positive half piMOM
+#############################
+# Positive-half piMOM prior and helper functions.
+#############################
 dhalfpiMOM <- nimbleFunction(
   run = function(x=double(0), t=double(0), r=double(0), 
                  log=integer(0, default=0)){
@@ -49,7 +54,9 @@ rhalfpiMOM <- nimbleFunction(
     return(nimble_piMOM_inverse(dev, t=t, r=r))
   })
 
-# for a vector of bernoulli variables
+#############################
+# Vectorized Bernoulli and negative-binomial distributions.
+#############################
 dBernoulliVector <- nimbleFunction(
   run = function(x    = double(1),
                  prob = double(1),
@@ -110,7 +117,9 @@ dBernoulliVector <- nimbleFunction(
   }
 )
 
-# for sparse matrix multiplication
+#############################
+# Sparse multiplication used to include only active GWAS gene effects.
+#############################
 sparseMult <- nimbleFunction(
   run = function(nonzeros_ind = double(1),
                  dataMat = double(2), 
@@ -121,8 +130,9 @@ sparseMult <- nimbleFunction(
     return(out[,1])
   })
 
-###################
-# RJ sampler with multiple toggles
+#############################
+# Reversible-jump sampler for switching a gene between null and active states.
+#############################
 ###################
 my_sampler_RJ_indicator <- nimbleFunction(
   name = 'my_sampler_RJ_indicator',
@@ -194,8 +204,9 @@ my_sampler_RJ_indicator <- nimbleFunction(
 
 
 
-###########
-# nimble code
+#############################
+# NIMBLE model definition.
+#############################
 ###########
 three_groups_code <- nimbleCode({
   
@@ -294,8 +305,9 @@ three_groups_code <- nimbleCode({
 })  
 
 
-###########
-# set constants
+#############################
+# Build constants, monitors, data, and initial values.
+#############################
 consts  <- list(num_individuals_RNA=num_individuals_RNA, 
                 num_individuals_GWAS=num_individuals_GWAS,
                 library_offset=
@@ -347,8 +359,9 @@ inits   <- list(dispersion=rgamma(num_genes,2,2),
                 t_deleterious_GWAS = 3,
                 t_beneficial_GWAS = 3)
 
-#############
-# run mcmc on all models, all priors
+#############################
+# Run every requested model/prior combination and save posterior samples.
+#############################
 #############
 for(model in models_for_mcmc){
   
@@ -475,8 +488,10 @@ toc()
 # save all samples
 saveRDS(mcmc_samples_list, paste0(mcmc_save_name, ".rds"))
 
-#############
-# compute posterior probability of null group
+#############################
+# Legacy in-memory posterior calculations retained for the original workflow.
+# The current reusable summaries are produced by posterior.R.
+#############################
 #############
 post_probs_null_TG <- 
   as.data.frame(lapply(mcmc_samples_list, function(x){

@@ -1,6 +1,10 @@
 #############################
-# competitors script
-### run first: generate_data.R 
+# Optional competitor-method analysis.
+#
+# Run after generate_data.R has created Y_GWAS, X_GWAS, Y_RNA, and the design
+# variables. This file is intentionally deferred from the current workflow.
+# It compares conventional GWAS, edgeR, limma-voom, DESeq2, and p-value
+# combination methods against the three-groups model.
 #############################
 library(edgeR)
 library(limma)

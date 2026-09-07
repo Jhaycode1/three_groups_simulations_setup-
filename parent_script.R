@@ -1,24 +1,10 @@
 #############################
-# Parent script
-### calls:
-###### generate_data.R, three_groups_nimble.R, pickrell_data.rds, 
-######     competitors_methods.R, evaluation_metrics.R
+# Main simulation driver.
+#
+# This script controls one complete simulation: it creates the data, invokes
+# the NIMBLE model, and saves posterior samples plus matching metadata.
+# Optional command-line arguments are a numeric seed and an output base name.
 #############################
-# # save arguments from bash 
-# bash_args = commandArgs(trailingOnly = T)
-# # test if there is at least one argument: if not, return an error
-# if (length(bash_args)==0) {
-#   stop("At least one argument must be supplied (input file).n", call.=FALSE)
-# } else if (length(bash_args)==1) {
-#   # default output file
-#   bash_args[2] = "out.txt"
-# }
-# #############################
-# if(!exists("bash_args")){           # for debugging
-#   bash_args <- c(127, ".....TEMP....")
-# }
-# #############################
-# my_seed1 <- as.numeric(bash_args[1])/127
 script_args <- commandArgs(trailingOnly = TRUE)
 
 all_args <- commandArgs(trailingOnly = FALSE)
@@ -73,7 +59,7 @@ my_seed1 <- if (length(script_args) >= 1) as.numeric(script_args[1]) else 1
 set.seed(my_seed1*127) # Used to set the number of times you want the simulation to run as the same value of seed will always produce the same data simulations. Best for comparisons and confirmation of data generation.
 
 
-# !!! SAVE NAMES !!! 
+# Create the output directory and choose a reproducible result name.
 save_location <- file.path(script_dir, "test_run_results")
 save_name <- if (length(script_args) >= 2) {
   script_args[2]
@@ -83,22 +69,22 @@ save_name <- if (length(script_args) >= 2) {
 
 
 
-# data shape
+# Simulation design parameters. Change these values to define a scenario.
 num_individuals_RNA  <- 100 # The total number of individual or people's RNA-seq data needed that we want to simulate. The number is configurable. 
 num_individuals_GWAS <- 1000 # The total number of individual or people's GWAS genetic data needed that we want to simulate. The number is configurable.Notice that the number of individuals for RNA-seq and GWAS can be different. This is because the data is collected from different sources and the number of individuals may not be the same. That is because the RNA-seq data is always lower in noise and efficient and takes place in small number of people comapred to the GWAS data that the differences between individual is low, so much number is needed for high statistical power.
 
-num_genes            <- 10 #This set the total number of genes that we want to simulate in total. 
-num_beneficial       <- 2 # set the number of genes that are beneficial or have a positive effect on the outcome. This is used to simulate the data and to evaluate the performance of the methods.
-GWAS_effect          <- c(rep(0.5, 2*num_beneficial), 
-                          rep(0, num_genes - 2*num_beneficial)) # set the effect size of the GWAS data. The first 2*num_beneficial genes have a positive effect of 0.5 (so as to ensure consistency and they all detected to avoid noise) and the rest have no effect. This is used to simulate the data and to evaluate the performance of the methods.
-RNA_effect           <- c(rep(1.4, 2*num_beneficial), 
-                          rep(0, num_genes - 2*num_beneficial)) # set the effect size of the RNA-seq data. The first 2*num_beneficial genes have a positive effect of 1.4 (so as to ensure consistency and they all detected to avoid noise) and the rest have no effect. This is used to simulate the data and to evaluate the performance of the methods.
+num_genes            <- 100 # Total number of simulated genes.
+num_beneficial       <- 50 # Beneficial genes; the same number are deleterious.
+if (2 * num_beneficial > num_genes) {
+  stop("num_genes must be at least twice num_beneficial: the simulator creates beneficial and deleterious genes.")
+}
+GWAS_effect          <- c(rep(0.5, 2 * num_beneficial),
+                          rep(0, num_genes - 2 * num_beneficial))
+RNA_effect           <- c(rep(1.4, 2 * num_beneficial),
+                          rep(0, num_genes - 2 * num_beneficial))
 
-# data generation:
-source("generate_data.R") 
-  # This script loads Montgomery_and_Pickrell.rds which are published data 
-  #   Pickrell et. al. (2010) and Montgomery et. al. (2010) and can be accessed
-  #   here:   https://bowtie-bio.sourceforge.net/recount/
+# Generate GWAS and RNA-seq data and create the known truth vector.
+source("generate_data.R")
 
 # # To induce missingness uncomment the following code: 
 # Y_RNA[seq(2,9902, length.out = 100)] <- NA
@@ -111,14 +97,36 @@ source("generate_data.R")
 # Three_groups
 models_for_mcmc <- c("combined", "RNA_only", "GWAS_only") #This is used to specify the models that we want to run in the MCMC simulation. The models are "combined", "RNA_only", and "GWAS_only". The combined model uses both RNA-seq and GWAS data for joint inference analysis, while the RNA_only model uses only RNA-seq data, and the GWAS_only model uses only GWAS data. This is used to evaluate the performance of the methods. # nolint
 priors_for_mcmc <- c("piMOM", "local")
-niter           <- 5 # This set the number of iteration that want you want the MCMC sampling to run amd simnulate the data. The number of iterations is configurable and can be set to any number. The higher the number of iterations, the more accurate the results will be, but it will also take longer to run. The lower the number of iterations, the less accurate the results will be, but it will also take less time to run. # nolint # nolint
-nburnin         <- 2 # This set the number of burn-in iterations that you want the MCMC sampling to run and simulate the data. The number of burn-in iterations is configurable and can be set to any number. The higher the number of burn-in iterations, the more accurate the results will be, but it will also take longer to run. The lower the number of burn-in iterations, the less accurate the results will be, but it will also take less time to run. # nolint
-thin            <- 1 # This set the thinning interval that you want the MCMC sampling to run and simulate the data. The thinning interval is configurable and can be set to any number. The higher the thinning interval, the more accurate the results will be, but it will also take longer to run. The lower the thinning interval, the less accurate the results will be, but it will also take less time to run, which is the number of steps or the result that want the model simulation to keep. Eg, here on 100 simulation, the model will keep 2 results, one at 51 and the other at 101, and discard the rest. This is used to reduce the autocorrelation in the MCMC samples and to improve the mixing of the chains. The thinning interval is set to 50, which means that every 50th sample will be kept and the rest will be discarded. This is used to reduce the autocorrelation in the MCMC samples and to improve the mixing of the chains. # nolint
+niter           <- 5000 # This set the number of iteration that want you want the MCMC sampling to run amd simnulate the data. The number of iterations is configurable and can be set to any number. The higher the number of iterations, the more accurate the results will be, but it will also take longer to run. The lower the number of iterations, the less accurate the results will be, but it will also take less time to run. # nolint # nolint
+nburnin         <- 2000 # This set the number of burn-in iterations that you want the MCMC sampling to run and simulate the data. The number of burn-in iterations is configurable and can be set to any number. The higher the number of burn-in iterations, the more accurate the results will be, but it will also take longer to run. The lower the number of burn-in iterations, the less accurate the results will be, but it will also take less time to run. # nolint
+thin            <- 10 # This set the thinning interval that you want the MCMC sampling to run and simulate the data. The thinning interval is configurable and can be set to any number. The higher the thinning interval, the more accurate the results will be, but it will also take longer to run. The lower the thinning interval, the less accurate the results will be, but it will also take less time to run, which is the number of steps or the result that want the model simulation to keep. Eg, here on 100 simulation, the model will keep 2 results, one at 51 and the other at 101, and discard the rest. This is used to reduce the autocorrelation in the MCMC samples and to improve the mixing of the chains. The thinning interval is set to 50, which means that every 50th sample will be kept and the rest will be discarded. This is used to reduce the autocorrelation in the MCMC samples and to improve the mixing of the chains. # nolint
 num_samples     <- (niter-nburnin)/thin #
-3
 mcmc_save_name <- file.path(save_location, save_name)
- 
+
+# Run all requested model/prior combinations and save posterior samples.
 source("TG_nimble_model.R")
+
+# Save the exact simulation design beside the posterior samples so evaluation
+# never has to reconstruct truth labels manually.
+simulation_metadata <- list(
+  seed = my_seed1,
+  num_individuals_RNA = num_individuals_RNA,
+  num_individuals_GWAS = num_individuals_GWAS,
+  num_genes = num_genes,
+  num_beneficial = num_beneficial,
+  GWAS_effect = GWAS_effect,
+  RNA_effect = RNA_effect,
+  groups = groups,
+  niter = niter,
+  nburnin = nburnin,
+  thin = thin,
+  models_for_mcmc = models_for_mcmc,
+  priors_for_mcmc = priors_for_mcmc
+)
+saveRDS(
+  simulation_metadata,
+  paste0(mcmc_save_name, "_metadata.rds")
+)
 print("Saved")
 # results in post_probs_null_TG
 
